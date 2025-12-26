@@ -7,19 +7,23 @@ import (
 )
 
 type Maps struct {
-	Count    int    `json:"count"`
-	Next     string `json:"next"`
-	Previous any    `json:"previous"`
+	Count    int     `json:"count"`
+	Next     *string `json:"next"`
+	Previous *string `json:"previous"`
 	Results  []struct {
 		Name string `json:"name"`
 		URL  string `json:"url"`
 	} `json:"results"`
 }
 
-func GetMapHelper() (Maps, error) {
+func GetMapHelper(URL string) (Maps, error) {
 	var mapData Maps
 
-	res, err := http.Get("https://pokeapi.co/api/v2/location-area/")
+	if len(URL) == 0 {
+		URL = "https://pokeapi.co/api/v2/location-area/"
+	}
+
+	res, err := http.Get(URL)
 	if err != nil {
 		return mapData, err
 	}

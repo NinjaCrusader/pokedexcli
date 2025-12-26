@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -11,8 +12,38 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func() error
-	mapcallback func() internal.Maps
+	callback    func(*config) error
+}
+
+type config struct {
+	Next     *string
+	Previous *string
+}
+
+// Will return available commands that can be used
+func getCommands() map[string]cliCommand {
+	return map[string]cliCommand{
+		"exit": {
+			name:        "exit",
+			description: "Exit the Pokedex",
+			callback:    commandExit,
+		},
+		"help": {
+			name:        "help",
+			description: "Displays a help message",
+			callback:    commandHelp,
+		},
+		"map": {
+			name:        "map",
+			description: "Displays the names of 20 location areas in the Pokemon world",
+			callback:    commandMap,
+		},
+		"mapb": {
+			name:        "mapb",
+			description: "Displays the names of the previous 20 location areas in the Pokemon world",
+			callback:    commanMapB,
+		},
+	}
 }
 
 // Cleans the User input before we use it
@@ -27,28 +58,101 @@ func cleanInput(text string) []string {
 }
 
 // Will exit the application when called
-func commandExit() error {
+func commandExit(cfg *config) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
 // Will print out the commands available to the User
-func commandHelp() error {
+func commandHelp(cfg *config) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	fmt.Println("")
 	fmt.Println("help: Displays a help message")
 	fmt.Println("exit: Exit the Pokedex")
+	fmt.Println("map: Displays the names of 20 location areas in the Pokemon world")
 	return nil
 }
 
 // Will reach out to the PokeAPI and return 20 location-area points and display them to the User
-func commandMap() (internal.Maps, error) {
-	mapData, err := internal.GetMapHelper()
+func commandMap(cfg *config) error {
+	var url string
+
+	if cfg.Next == nil {
+		url = ""
+	} else {
+		url = *cfg.Next
+	}
+	mapData, err := internal.GetMapHelper(url)
 	if err != nil {
 		fmt.Println("Getting map information has failed")
-		os.Exit(0)
+		return err
 	}
+
+	for _, r := range mapData.Results {
+		fmt.Println(r.Name)
+	}
+
+	cfg.Next = mapData.Next
+	cfg.Previous = mapData.Previous
+
 	return nil
+}
+
+func commanMapB(cfg *config) error {
+	var url string
+
+	if cfg.Previous == nil {
+		url = ""
+	} else {
+		url = *cfg.Previous
+	}
+
+	mapData, err := internal.GetMapHelper(url)
+	if err != nil {
+		fmt.Println("getting map information has failed")
+		return err
+	}
+
+	for _, r := range mapData.Results {
+		fmt.Println(r.Name)
+	}
+
+	cfg.Next = mapData.Next
+	cfg.Previous = mapData.Previous
+
+	return nil
+}
+
+func startRepl(cfg *config) {
+
+	//Waiting for user input
+	scanner := bufio.NewScanner(os.Stdin)
+
+	//Starting the REPL loop
+	for {
+		fmt.Print("Pokedex > ")
+		scanner.Scan()
+		userInput := scanner.Text()
+		cleanUserInput := cleanInput(userInput)
+		if len(cleanUserInput) == 0 {
+			fmt.Println("Please enter a valid command")
+			continue
+		}
+
+		//Checking the first value within the user input
+		firstValue := cleanUserInput[0]
+
+		//Checking if the first value is a command within the supported commands
+		commands := getCommands()
+		cmd, ok := commands[firstValue]
+		if !ok {
+			fmt.Println("Unknown command")
+			continue
+		}
+		if err := cmd.callback(cfg); err != nil {
+			fmt.Println(err)
+		}
+	}
 }
