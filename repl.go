@@ -13,7 +13,7 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*config) error
+	callback    func(*config, string) error
 }
 
 type config struct {
@@ -45,6 +45,11 @@ func getCommands() map[string]cliCommand {
 			description: "Displays the names of the previous 20 location areas in the Pokemon world",
 			callback:    commanMapB,
 		},
+		"explore": {
+			name:        "explore",
+			description: "Displays the names of the Pokemon that can be found in an area",
+			callback:    commandExplore,
+		},
 	}
 }
 
@@ -60,25 +65,49 @@ func cleanInput(text string) []string {
 }
 
 // Will exit the application when called
-func commandExit(cfg *config) error {
+func commandExit(cfg *config, area string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
 // Will print out the commands available to the User
-func commandHelp(cfg *config) error {
+func commandHelp(cfg *config, area string) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	fmt.Println("")
 	fmt.Println("help: Displays a help message")
 	fmt.Println("exit: Exit the Pokedex")
 	fmt.Println("map: Displays the names of 20 location areas in the Pokemon world")
+	fmt.Println("explore: It takes the name of a location area and prints the Pokemon in that area (example: explore <area_name>)")
+	return nil
+}
+
+func commandExplore(cfg *config, area string) error {
+	if len(area) == 0 {
+		err := fmt.Errorf("Please provide an area")
+		return err
+	}
+
+	fmt.Printf("Exploring %v...\n", area)
+
+	areaData, err := internal.GetAreaInformationHelper(area, cfg.Cache)
+	if err != nil {
+		fmt.Println("Getting area information has failed")
+		return err
+	}
+
+	fmt.Println("Found Pokemon:")
+
+	for _, r := range areaData.PokemonEncounters {
+		fmt.Printf(" - %v\n", r.Pokemon.Name)
+	}
+
 	return nil
 }
 
 // Will reach out to the PokeAPI and return 20 location-area points and display them to the User
-func commandMap(cfg *config) error {
+func commandMap(cfg *config, area string) error {
 	var url string
 
 	if cfg.Next == nil {
@@ -102,7 +131,7 @@ func commandMap(cfg *config) error {
 	return nil
 }
 
-func commanMapB(cfg *config) error {
+func commanMapB(cfg *config, area string) error {
 	var url string
 
 	if cfg.Previous == nil {
@@ -145,6 +174,10 @@ func startRepl(cfg *config) {
 
 		//Checking the first value within the user input
 		firstValue := cleanUserInput[0]
+		var argumentValue string
+		if len(cleanUserInput) > 1 {
+			argumentValue = cleanUserInput[1]
+		}
 
 		//Checking if the first value is a command within the supported commands
 		commands := getCommands()
@@ -153,7 +186,7 @@ func startRepl(cfg *config) {
 			fmt.Println("Unknown command")
 			continue
 		}
-		if err := cmd.callback(cfg); err != nil {
+		if err := cmd.callback(cfg, argumentValue); err != nil {
 			fmt.Println(err)
 		}
 	}
