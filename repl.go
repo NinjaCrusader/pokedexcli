@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/NinjaCrusader/pokedexcli/internal"
+	"github.com/NinjaCrusader/pokedexcli/internal/pokecache"
 )
 
 type cliCommand struct {
@@ -18,6 +19,7 @@ type cliCommand struct {
 type config struct {
 	Next     *string
 	Previous *string
+	Cache    *pokecache.Cache
 }
 
 // Will return available commands that can be used
@@ -84,7 +86,7 @@ func commandMap(cfg *config) error {
 	} else {
 		url = *cfg.Next
 	}
-	mapData, err := internal.GetMapHelper(url)
+	mapData, err := internal.GetMapHelper(url, cfg.Cache)
 	if err != nil {
 		fmt.Println("Getting map information has failed")
 		return err
@@ -109,7 +111,7 @@ func commanMapB(cfg *config) error {
 		url = *cfg.Previous
 	}
 
-	mapData, err := internal.GetMapHelper(url)
+	mapData, err := internal.GetMapHelper(url, cfg.Cache)
 	if err != nil {
 		fmt.Println("getting map information has failed")
 		return err

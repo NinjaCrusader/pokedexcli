@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+
+	"github.com/NinjaCrusader/pokedexcli/internal/pokecache"
 )
 
 type Maps struct {
@@ -16,8 +18,14 @@ type Maps struct {
 	} `json:"results"`
 }
 
-func GetMapHelper(URL string) (Maps, error) {
+func GetMapHelper(URL string, cache *pokecache.Cache) (Maps, error) {
 	var mapData Maps
+
+	cacheCheck, ok := cache.Get(URL)
+	if ok {
+		json.Unmarshal(cacheCheck, &mapData)
+		return mapData, nil
+	}
 
 	if len(URL) == 0 {
 		URL = "https://pokeapi.co/api/v2/location-area/"
@@ -30,6 +38,8 @@ func GetMapHelper(URL string) (Maps, error) {
 
 	body, err := io.ReadAll(res.Body)
 	defer res.Body.Close()
+
+	cache.Add(URL, body)
 
 	if err := json.Unmarshal(body, &mapData); err != nil {
 		return mapData, err
