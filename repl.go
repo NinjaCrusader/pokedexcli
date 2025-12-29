@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 
@@ -20,6 +21,7 @@ type config struct {
 	Next     *string
 	Previous *string
 	Cache    *pokecache.Cache
+	Pokedex  map[string]internal.Pokemon
 }
 
 // Will return available commands that can be used
@@ -50,6 +52,21 @@ func getCommands() map[string]cliCommand {
 			description: "Displays the names of the Pokemon that can be found in an area",
 			callback:    commandExplore,
 		},
+		"catch": {
+			name:        "catch",
+			description: "Catches Pokemon and adds them to the Pokedex",
+			callback:    commandCatch,
+		},
+		"inspect": {
+			name:        "inspect",
+			description: "Displays the stats of a specific Pokemon",
+			callback:    commandInspect,
+		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "Displays Pokemon the user has caught",
+			callback:    commandPokedex,
+		},
 	}
 }
 
@@ -65,14 +82,14 @@ func cleanInput(text string) []string {
 }
 
 // Will exit the application when called
-func commandExit(cfg *config, area string) error {
+func commandExit(cfg *config, argument string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
 // Will print out the commands available to the User
-func commandHelp(cfg *config, area string) error {
+func commandHelp(cfg *config, argument string) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	fmt.Println("")
@@ -80,18 +97,94 @@ func commandHelp(cfg *config, area string) error {
 	fmt.Println("exit: Exit the Pokedex")
 	fmt.Println("map: Displays the names of 20 location areas in the Pokemon world")
 	fmt.Println("explore: It takes the name of a location area and prints the Pokemon in that area (example: explore <area_name>)")
+	fmt.Println("catch: Catches the Pokemon and adds it to the Pokedex")
+	fmt.Println("inspect: Displays the stats of a Pokemon")
+	fmt.Println("pokedex: Displays Pokemon the user has caught")
 	return nil
 }
 
-func commandExplore(cfg *config, area string) error {
-	if len(area) == 0 {
+func commandPokedex(cfg *config, argument string) error {
+	if len(cfg.Pokedex) == 0 {
+		fmt.Println("you have not caught any pokemon yet")
+		return nil
+	}
+
+	for _, pokemon := range cfg.Pokedex {
+		fmt.Printf("  - %s\n", pokemon.Name)
+	}
+
+	return nil
+}
+
+func commandInspect(cfg *config, argument string) error {
+	if len(argument) == 0 {
+		err := fmt.Errorf("Please provide a Pokemon")
+		return err
+	}
+
+	cleanedArgument := strings.ToLower(argument)
+	cleanedArgument = strings.TrimSpace(cleanedArgument)
+
+	exists, ok := cfg.Pokedex[cleanedArgument]
+	if !ok {
+		err := fmt.Errorf("you have not caught that pokemon")
+		return err
+	} else {
+		fmt.Printf("Name: %v\n", exists.Name)
+		fmt.Printf("Height: %v\n", exists.Height)
+		fmt.Printf("Weight: %v\n", exists.Weight)
+		fmt.Println("Stats:")
+		for _, stat := range exists.Stats {
+			fmt.Printf("  -%s: %v\n", stat.Stat.Name, stat.BaseStat)
+		}
+		fmt.Println("Types:")
+		for _, stat := range exists.Types {
+			fmt.Printf("  -%s\n", stat.Type.Name)
+		}
+	}
+
+	return nil
+}
+
+func commandCatch(cfg *config, argument string) error {
+	if len(argument) == 0 {
+		err := fmt.Errorf("Please provide a Pokemon")
+		return err
+	}
+
+	cleanedArgument := strings.ToLower(argument)
+	cleanedArgument = strings.TrimSpace(cleanedArgument)
+
+	fmt.Printf("Throwing a Pokeball at %v...", cleanedArgument)
+
+	pokemonData, err := internal.GetPokemonInformationHelper(cleanedArgument, cfg.Cache)
+	if err != nil {
+		fmt.Println("Getting Pokemon information has failed")
+		return err
+	}
+
+	catchPriority := rand.Intn(150)
+	pokeBaseExperience := pokemonData.BaseExperience
+
+	if (catchPriority - pokeBaseExperience) > 0 {
+		fmt.Printf("%v was caught!\n", cleanedArgument)
+		cfg.Pokedex[cleanedArgument] = pokemonData
+	} else {
+		fmt.Printf("%v escaped!\n", cleanedArgument)
+	}
+
+	return nil
+}
+
+func commandExplore(cfg *config, argument string) error {
+	if len(argument) == 0 {
 		err := fmt.Errorf("Please provide an area")
 		return err
 	}
 
-	fmt.Printf("Exploring %v...\n", area)
+	fmt.Printf("Exploring %v...\n", argument)
 
-	areaData, err := internal.GetAreaInformationHelper(area, cfg.Cache)
+	areaData, err := internal.GetAreaInformationHelper(argument, cfg.Cache)
 	if err != nil {
 		fmt.Println("Getting area information has failed")
 		return err
@@ -107,7 +200,7 @@ func commandExplore(cfg *config, area string) error {
 }
 
 // Will reach out to the PokeAPI and return 20 location-area points and display them to the User
-func commandMap(cfg *config, area string) error {
+func commandMap(cfg *config, argument string) error {
 	var url string
 
 	if cfg.Next == nil {
@@ -131,7 +224,7 @@ func commandMap(cfg *config, area string) error {
 	return nil
 }
 
-func commanMapB(cfg *config, area string) error {
+func commanMapB(cfg *config, argument string) error {
 	var url string
 
 	if cfg.Previous == nil {
