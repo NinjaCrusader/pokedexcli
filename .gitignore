@@ -1,0 +1,26 @@
+# Nix
+result/
+result
+*.drv
+*.nar
+*.lock
+
+# Go
+bin/
+*.exe
+*.test
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+result
+result
